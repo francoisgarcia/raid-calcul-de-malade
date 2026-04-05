@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Stratégie Raid INSA 2026 - Expert v2</title>
+    <style>
+        :root { --orange: #FF7900; --blue: #007AD9; --green: #28a745; --red: #dc3545; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; color: #212529; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 25px; justify-content: center; }
+        .tab-btn { padding: 12px 25px; border: none; background: #e9ecef; cursor: pointer; font-weight: bold; border-radius: 6px; transition: 0.2s; }
+        .tab-btn.active { background: var(--orange); color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .section-card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 4px solid var(--blue); }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; }
+        .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .path-box { padding: 15px; border-radius: 10px; border: 2px solid #f1f3f5; cursor: pointer; transition: 0.2s; background: #fff; }
+        .path-box.active { border-color: var(--blue); background: #f0f7ff; }
+        .input-group { background: #f8f9fa; padding: 12px; border-radius: 8px; margin-top: 10px; }
+        .input-row { display: flex; align-items: center; gap: 15px; margin-top: 8px; }
+        input[type="number"] { width: 70px; padding: 6px; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold; }
+        input[type="range"] { flex-grow: 1; accent-color: var(--orange); }
+        .bh-badge { display: block; margin-top: 12px; padding: 8px; border-radius: 6px; font-weight: bold; text-align: center; font-size: 0.85em; text-transform: uppercase; }
+        .bh-ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .bh-ko { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .bh-none { background: #e9ecef; color: #6c757d; }
+        .stats-table { width: 100%; font-size: 0.9em; margin-top: 10px; }
+        .stats-table td { padding: 5px 0; border-bottom: 1px dashed #dee2e6; }
+        .delta-box { grid-column: span 2; background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 15px; border: 1px solid #ffeeba; }
+        .footer-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--blue); color: white; padding: 18px; text-align: center; font-size: 1.3em; font-weight: bold; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+
+<h1 style="text-align:center; color: var(--blue);">Race Strategist : Volcans d'Auvergne 2026</h1>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchDay('J1')">JOUR 1 - Volvic</button>
+    <button class="tab-btn" onclick="switchDay('J2')">JOUR 2 - Aydat</button>
+    <button class="tab-btn" onclick="switchDay('J3')">JOUR 3 - Mont-Dore</button>
+</div>
+
+<div id="mainContent" style="max-width: 1000px; margin: 0 auto 100px auto;"></div>
+
+<div class="footer-nav" id="etaBanner">Arrivée estimée au bivouac : --:--</div>
+
+<script>
+// Base de données précise issue du Raidbook [cite: 295-674]
+const RAID_CONFIG = {
+    J1: { start: "09:00", sections: [
+        { id: "vtt1", name: "VTT : Volvic ➔ Beauregard", type: "VTT", f: {d:17, p:415, pen:60}, d: {d:24, p:550, pen:0} },
+        { id: "trail1", name: "Trail 1 : Puy de Jume", type: "Trail", f: {d:5.7, p:130, pen:100, bhTot:"10:15"}, d: {d:10.6, p:380, pen:0, bhTard:"11:10"} },
+        { id: "trail2", name: "Trail 2 : Puy de Dôme", type: "Trail", f: {d:9.5, p:250, pen:180, bhTot:"12:30"}, d: {d:16.7, p:680, pen:0, bhTard:"12:40"} },
+        { id: "rb1", name: "Run & Bike : Final Aydat", type: "Trail", f: {d:17.4, p:330, pen:0}, d: {d:17.4, p:330, pen:0}, isCommon: true }
+    ]},
+    J2: { start: "08:30", sections: [
+        { id: "vtt2", name: "VTT : Aydat ➔ Servières", type: "VTT", f: {d:16, p:480, pen:75}, d: {d:22.7, p:610, pen:0} },
+        { id: "trailJ2", name: "Trail : Massif du Sancy", type: "Trail", f: {d:14.6, p:460, pen:180, bhTot:"11:30"}, d: {d:22.7, p:980, pen:0, bhTard:"12:05"} },
+        { id: "rbJ2", name: "Run & Bike : Retour Aydat", type: "VTT", f: {d:11.4, p:110, pen:0}, d: {d:11.4, p:110, pen:0}, isCommon: true }
+    ]},
+    J3: { start: "08:30", sections: [
+        { id: "rbJ3", name: "Run & Bike : Bois de Mareuge", type: "VTT", f: {d:12.7, p:420, pen:0}, d: {d:12.7, p:420, pen:0}, isCommon: true },
+        { id: "vttJ3", name: "VTT : Beaune-le-Froid", type: "VTT", f: {d:17.3, p:700, pen:45, bhTot:"10:20"}, d: {d:21.6, p:780, pen:0, bhTard:"11:45"} },
+        { id: "trailJ3", name: "Trail Final : Pic du Capucin", type: "Trail", f: {d:6.4, p:200, pen:90, bhTot:"12:20"}, d: {d:10.8, p:480, pen:0, bhTard:"14:15"} }
+    ]}
+};
+
+let currentDay = 'J1';
+let userState = { speedsF: {}, speedsD: {}, choices: {}, pauses: {} };
+
+function setupDay() {
+    RAID_CONFIG[currentDay].sections.forEach(s => {
+        if (!userState.speedsF[s.id]) userState.speedsF[s.id] = s.type === "VTT" ? 15 : 10;
+        if (!userState.speedsD[s.id]) userState.speedsD[s.id] = s.type === "VTT" ? 12 : 8;
+        if (!userState.choices[s.id]) userState.choices[s.id] = 'd';
+        if (!userState.pauses[s.id]) userState.pauses[s.id] = 10;
+    });
+}
+
+function tToM(time) { const [h, m] = time.split(':').map(Number); return h * 60 + m; }
+function mToT(m) { const hrs = Math.floor(m / 60) % 24; const mins = Math.floor(m % 60); return `${hrs.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}`; }
+
+function compute(section, mode, startT, spd) {
+    const data = section[mode];
+    const ratio = section.type === "VTT" ? 3 : 1; 
+    const kmE = data.d + (ratio * data.p / 100);
+    const dur = (data.d / spd) * 60;
+    const end = startT + dur;
+    
+    let bh = { text: "Aucune BH", cls: "bh-none" };
+    if (data.bhTot) {
+        const ok = startT >= tToM(data.bhTot);
+        bh = { text: `BH TÔT (${data.bhTot}) : ${ok ? 'VALIDE' : 'Difficile obligatoire'}`, cls: ok ? 'bh-ok' : 'bh-ko' };
+    } else if (data.bhTard) {
+        const ok = startT <= tToM(data.bhTard);
+        bh = { text: `BH TARD (${data.bhTard}) : ${ok ? 'VALIDE' : 'Facile obligatoire'}`, cls: ok ? 'bh-ok' : 'bh-ko' };
+    }
+    return { end, dur, kmE, bh, pen: data.pen };
+}
+
+function renderUI() {
+    const day = RAID_CONFIG[currentDay];
+    const zone = document.getElementById('mainContent');
+    let html = ``;
+    let timeCursor = tToM(day.start);
+
+    day.sections.forEach(s => {
+        const spF = userState.speedsF[s.id];
+        const spD = userState.speedsD[s.id];
+        const resF = compute(s, 'f', timeCursor, spF);
+        const resD = compute(s, 'd', timeCursor, spD);
+        
+        const active = userState.choices[s.id] === 'f' ? resF : resD;
+        const gain = Math.round((resF.dur + resF.pen) - (resD.dur + resD.pen));
+
+        html += `
+        <div class="section-card">
+            <div class="section-header">
+                <span style="font-size: 1.2em; font-weight: bold;">${s.name}</span>
+                <span style="color: var(--blue);">Arrivée au point : <b>${mToT(timeCursor)}</b></span>
+            </div>
+            
+            <div class="comparison-grid">
+                <div class="path-box ${userState.choices[s.id]==='f'?'active':''}" onclick="setChoice('${s.id}','f')">
+                    <div style="display:flex; justify-content:space-between;"><b>OPTION FACILE</b> <span>${s.isCommon?'':'pén: '+s.f.pen+'m'}</span></div>
+                    <div class="input-group">
+                        <div class="input-row">
+                            <input type="number" step="0.1" value="${spF}" onchange="setSpd('${s.id}','f',this.value)">
+                            <input type="range" min="3" max="40" step="0.5" value="${spF}" oninput="setSpd('${s.id}','f',this.value)">
+                            <span>km/h</span>
+                        </div>
+                    </div>
+                    <table class="stats-table">
+                        <tr><td>Distance / D+</td><td align="right">${s.f.d} km / ${s.f.p} m</td></tr>
+                        <tr><td>Vitesse Ajustée</td><td align="right">${(resF.kmE / (resF.dur / 60)).toFixed(1)} km/h</td></tr>
+                        <tr><td>Durée Épreuve</td><td align="right"><b>${Math.round(resF.dur)} min</b></td></tr>
+                        <tr><td>Km-Effort</td><td align="right">${resF.kmE.toFixed(1)} km-e</td></tr>
+                        <tr><td>Arrivée estimée</td><td align="right"><b>${mToT(resF.end)}</b></td></tr>
+                    </table>
+                    <div class="bh-badge ${resF.bhStatus ? resF.bhStatus.cls : resF.bh.cls}">${resF.bhStatus ? resF.bhStatus.text : resF.bh.text}</div>
+                </div>
+
+                <div class="path-box ${userState.choices[s.id]==='d'?'active':''}" onclick="setChoice('${s.id}','d')">
+                    <div style="display:flex; justify-content:space-between;"><b>OPTION DIFFICILE</b> <span>🎯</span></div>
+                    <div class="input-group">
+                        <div class="input-row">
+                            <input type="number" step="0.1" value="${spD}" onchange="setSpd('${s.id}','d',this.value)">
+                            <input type="range" min="3" max="40" step="0.5" value="${spD}" oninput="setSpd('${s.id}','d',this.value)">
+                            <span>km/h</span>
+                        </div>
+                    </div>
+                    <table class="stats-table">
+                        <tr><td>Distance / D+</td><td align="right">${s.d.d} km / ${s.d.p} m</td></tr>
+                        <tr><td>Vitesse Ajustée</td><td align="right">${(resD.kmE / (resD.dur / 60)).toFixed(1)} km/h</td></tr>
+                        <tr><td>Durée Épreuve</td><td align="right"><b>${Math.round(resD.dur)} min</b></td></tr>
+                        <tr><td>Km-Effort</td><td align="right">${resD.kmE.toFixed(1)} km-e</td></tr>
+                        <tr><td>Arrivée estimée</td><td align="right"><b>${mToT(resD.end)}</b></td></tr>
+                    </table>
+                    <div class="bh-badge ${resD.bhStatus ? resD.bhStatus.cls : resD.bh.cls}">${resD.bhStatus ? resD.bhStatus.text : resD.bh.text}</div>
+                </div>
+
+                <div class="delta-box">
+                    ${s.isCommon ? 'TRONÇON COMMUN' : `Gain de temps final si choix DIFF : ${gain} minutes (Pénalités inclues)`}
+                </div>
+            </div>
+
+            <div class="input-group" style="margin-top:20px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                <label><b>Pause / Ravito / Transition après épreuve :</b></label>
+                <div class="input-row">
+                    <input type="number" value="${userState.pauses[s.id]}" onchange="setPause('${s.id}',this.value)">
+                    <input type="range" min="0" max="60" step="1" value="${userState.pauses[s.id]}" oninput="setPause('${s.id}',this.value)">
+                    <span>minutes</span>
+                </div>
+            </div>
+        </div>`;
+        
+        timeCursor = active.end + parseInt(userState.pauses[s.id]);
+    });
+
+    zone.innerHTML = html;
+    document.getElementById('etaBanner').innerText = `Estimation Arrivée Finale : ${mToT(timeCursor)}`;
+}
+
+function switchDay(d) { 
+    currentDay = d; setupDay(); renderUI(); 
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+}
+function setSpd(id, m, v) { if(m==='f') userState.speedsF[id]=parseFloat(v); else userState.speedsD[id]=parseFloat(v); renderUI(); }
+function setPause(id, v) { userState.pauses[id]=parseInt(v); renderUI(); }
+function setChoice(id, c) { userState.choices[id]=c; renderUI(); }
+
+setupDay();
+renderUI();
+</script>
+</body>
+</html>
